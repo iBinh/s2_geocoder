@@ -24,12 +24,13 @@ impl World {
         for i in self.min_level..=self.max_level {
             id = id.parent(i as u64);
             // println!("cellid level {}", id.level());
-            let bitmap = self.cellid_map.entry(id.0).or_insert(Bitmap::default());
+            let bitmap = self.cellid_map.entry(id.0).or_insert_with(Bitmap::default);
             bitmap.add(item_id);
         }
         
     }
     ///get bitmaps of item ids within a circle defined by a center(coords) and a radius in km. The input variable coords is defined as (latitude: f64, longitude: f64)
+    ///the output is a bitmap of item ids
     pub fn within_radius(&self, coords: (f64, f64), radius: f64, max_cells: usize) -> Bitmap {
         let latlng = LatLng::new(Angle::from(Deg(coords.0)), Angle::from(Deg(coords.1)));
         let radius_in_deg = radius/111.0;
@@ -43,8 +44,20 @@ impl World {
         let cell_union = coverer.covering(&cap);
         let empty_bitmap = Bitmap::default();
         let bitmaps = cell_union.0.iter().map(|i| self.cellid_map.get(&i.0).unwrap_or(&empty_bitmap)).collect::<Vec<_>>();
-        let result = Bitmap::fast_or_heap(&bitmaps);
-        result
+        Bitmap::fast_or_heap(&bitmaps)
+    }
+    ///insert line into world by Vec<latlng> and id
+    pub fn insert_line(&mut self, coords: Vec<(f64, f64)>, item_id: u32) {
+        for coord in coords {
+            self.insert(coord, item_id);
+        }
+    }
+    ///calculate the squared euclidean distance between two points
+    #[inline(always)]
+    pub fn squared_euclidean_distance(p1: (f64, f64), p2: (f64, f64)) -> f64 {
+        let dx = p1.0 - p2.0;
+        let dy = p1.1 - p2.1;
+        dx * dx + dy * dy
     }
 }
 
@@ -53,4 +66,3 @@ impl Default for World {
         Self::new(9, 12)
     }
 }
-
