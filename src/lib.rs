@@ -54,7 +54,7 @@ impl World {
     ///get nearest item id to a given latlng
     pub fn within_kdbush(&self, latlng: (f64, f64), radius: f64) -> Vec<u32> {
         let mut res = Vec::with_capacity(100);
-        self.kdtree.within(latlng.0, latlng.0, radius, |i| res.push(i as u32));
+        self.kdtree.within(latlng.1, latlng.0, radius, |i| res.push(i as u32));
         res
     }
         
