@@ -1,26 +1,46 @@
 use s2::{region::RegionCoverer, cap::Cap, cellid::CellID, latlng::LatLng, point::Point, s1::{chordangle::ChordAngle, angle::{Angle, Deg}}};
 use ahash::AHashMap;
 use croaring::Bitmap;
-use kdbush::KDBush;
+use rstar::*;
 pub struct World{
     pub cellid_map: AHashMap<u64, Bitmap>,
     pub min_level: u64,
     pub max_level: u64,
-    pub kdtree: KDBush,
+    pub tree: Option<RTree<TreePoint>>,
 }
+pub struct TreePoint(pub f64, pub f64, pub u32);
+impl RTreeObject for TreePoint {
+    type Envelope = AABB<[f64; 2]>;
 
+    fn envelope(&self) -> Self::Envelope{
+        AABB::from_point([self.1, self.0])
+    }
+}
+impl PointDistance for TreePoint{
+    #[inline(always)]
+    fn distance_2(&self, point: &[f64; 2]) -> f64 {
+        let dx = self.1 - point[1];
+        let dy = self.0 - point[0];
+        dx * dx + dy * dy
+    }
+    #[inline(always)]
+    fn contains_point(&self, point: &[f64; 2]) -> bool{
+        [self.1, self.0].contains_point(point)
+    }
+}
 impl World {
-    pub fn new(min_level: u64, max_level: u64, size_hint: usize) -> Self {
+    pub fn new(min_level: u64, max_level: u64) -> Self {
         World { 
             cellid_map: AHashMap::<u64, Bitmap>::default(), 
             min_level,
             max_level,
-            kdtree: KDBush::new(size_hint, 128),
+            tree: None,
         }
     }
-    ///finish the kdbush index
-    pub fn finish(&mut self) {
-        self.kdtree.build_index();
+    ///Build the reverse geocode index from a list of points
+    pub fn build_reverse_geocode_index(&mut self, points: Vec<TreePoint>) {
+        let rstar = RTree::bulk_load(points);
+        self.tree = Some(rstar);
     }
     ///insert item into world by latlng and id
     pub fn insert(&mut self, coords: (f64, f64), item_id: u32) {
@@ -32,7 +52,6 @@ impl World {
             let bitmap = self.cellid_map.entry(id.0).or_insert_with(Bitmap::default);
             bitmap.add(item_id);
         }
-        self.kdtree.add_point(item_id as usize, coords.1, coords.0);
     }
     ///get bitmaps of item ids within a circle defined by a center(coords) and a radius in km. The input variable coords is defined as (latitude: f64, longitude: f64)
     ///the output is a bitmap of item ids
@@ -52,12 +71,16 @@ impl World {
         Bitmap::fast_or_heap(&bitmaps)
     }
     ///get nearest item id to a given latlng
-    pub fn within_kdbush(&self, latlng: (f64, f64), radius: f64) -> Vec<u32> {
-        let mut res = Vec::with_capacity(100);
-        self.kdtree.within(latlng.1, latlng.0, radius, |i| res.push(i as u32));
-        res
+    pub fn nearest(&self, (lat, lon): (f64, f64)) -> Option<u32> {
+        match self.tree {
+            Some(ref tree) => {
+                tree.nearest_neighbor(&[lon, lat]).map(|point| point.2)
+            },
+            None => None
+        }
     }
-        
+    
+
     ///insert line into world by Vec<latlng> and id
     pub fn insert_line(&mut self, coords: Vec<(f64, f64)>, item_id: u32) {
         for coord in coords {
@@ -75,7 +98,7 @@ impl World {
 
 impl Default for World {
     fn default() -> Self {
-        Self::new(9, 12, 100)
+        Self::new(9, 12)
     }
 }
 
