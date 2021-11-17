@@ -70,13 +70,13 @@ impl World {
         let bitmaps = cell_union.0.iter().map(|i| self.cellid_map.get(&i.0).unwrap_or(&empty_bitmap)).collect::<Vec<_>>();
         Bitmap::fast_or_heap(&bitmaps)
     }
-    ///get nearest item id to a given latlng
-    pub fn nearest(&self, (lat, lon): (f64, f64)) -> Option<u32> {
+    ///get nearest items id to a given latlng
+    pub fn nearest(&self, (lat, lon): (f64, f64), limit: usize) -> std::io::Result<Vec<u32>> {
         match self.tree {
             Some(ref tree) => {
-                tree.nearest_neighbor(&[lon, lat]).map(|point| point.2)
+                Ok(tree.nearest_neighbor_iter(&[lon, lat]).map(|point| point.2).take(limit).collect::<Vec<u32>>())
             },
-            None => None
+            None => Err(std::io::Error::new(std::io::ErrorKind::Other, "No tree found"))
         }
     }
     
