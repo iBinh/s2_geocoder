@@ -13,14 +13,14 @@ impl RTreeObject for TreePoint {
     type Envelope = AABB<[f64; 2]>;
 
     fn envelope(&self) -> Self::Envelope{
-        AABB::from_point([self.1, self.0])
+        AABB::from_point([self.0, self.1])
     }
 }
 impl PointDistance for TreePoint{
     #[inline(always)]
     fn distance_2(&self, point: &[f64; 2]) -> f64 {
-        let dx = self.1 - point[1];
-        let dy = self.0 - point[0];
+        let dx = self.0 - point[0];
+        let dy = self.1 - point[1];
         dx * dx + dy * dy
     }
     #[inline(always)]
@@ -39,6 +39,7 @@ impl World {
     }
     ///Build the reverse geocode index from a list of points
     pub fn build_reverse_geocode_index(&mut self, points: Vec<TreePoint>) {
+        println!("Building reverse geocode index with {} points", points.len());
         let rstar = RTree::bulk_load(points);
         self.tree = Some(rstar);
     }
