@@ -71,7 +71,7 @@ impl World {
         Bitmap::fast_or_heap(&bitmaps)
     }
     ///get nearest items id to a given latlng
-    pub fn nearest(&self, (lat, lon): (f64, f64), limit: usize) -> std::io::Result<Vec<u32>> {
+    pub fn nearest_vec(&self, (lat, lon): (f64, f64), limit: usize) -> std::io::Result<Vec<u32>> {
         match self.tree {
             Some(ref tree) => {
                 Ok(tree.nearest_neighbor_iter(&[lon, lat]).map(|point| point.2).take(limit).collect::<Vec<u32>>())
@@ -80,6 +80,17 @@ impl World {
         }
     }
     
+    pub fn nearest(&self, (lat, lon): (f64, f64), limit: usize) -> std::io::Result<u32> {
+        match self.tree {
+            Some(ref tree) => {
+                match tree.nearest_neighbor(&[lon, lat]).map(|point| point.2) {
+                    Some(id) => Ok(id),
+                    None => Err(std::io::Error::new(std::io::ErrorKind::Other, "No result"))
+                }
+            },
+            None => Err(std::io::Error::new(std::io::ErrorKind::Other, "No tree found"))
+        }
+    }
 
     ///insert line into world by Vec<latlng> and id
     pub fn insert_line(&mut self, coords: Vec<(f64, f64)>, item_id: u32) {
