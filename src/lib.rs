@@ -105,11 +105,11 @@ impl World {
             self.shape_tree.insert(GeomWithData::new(Line::new(line[0], line[1]), item_id))
         }
     }
-
+    ///get nearest geometric shape id from point
     pub fn nearest_shape(&self, (lat, lon): (f64, f64)) -> Option<u32> {
         self.shape_tree.nearest_neighbor(&(lat, lon)).map(|line| line.data)
     }
-
+    ///get geometric shape ids within a given radius
     pub fn shapes_within_radius(&self, (lat, lon): (f64, f64), radius: f64) -> Vec<u32> {
         self.shape_tree.locate_within_distance((lat, lon), radius*radius).map(|line| line.data).collect::<Vec<_>>()
     }
