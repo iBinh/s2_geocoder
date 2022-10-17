@@ -2,11 +2,13 @@ use s2::{region::RegionCoverer, cap::Cap, cellid::CellID, latlng::LatLng, point:
 use ahash::AHashMap;
 use croaring::Bitmap;
 use rstar::*;
+use rstar::primitives::{GeomWithData, Line};
 pub struct World{
     pub cellid_map: AHashMap<u64, Bitmap>,
     pub min_level: u64,
     pub max_level: u64,
     pub tree: Option<RTree<TreePoint>>,
+    pub shape_tree: RTree<GeomWithData<Line<(f64, f64)>, u32>>,
 }
 pub struct TreePoint(pub f64, pub f64, pub u32);
 impl RTreeObject for TreePoint {
@@ -35,6 +37,7 @@ impl World {
             min_level,
             max_level,
             tree: None,
+            shape_tree: RTree::new()
         }
     }
     ///Build the reverse geocode index from a list of points
@@ -94,10 +97,21 @@ impl World {
     }
 
     ///insert line into world by Vec<latlng> and id
-    pub fn insert_line(&mut self, coords: Vec<(f64, f64)>, item_id: u32) {
-        for coord in coords {
-            self.insert(coord, item_id);
+    pub fn insert_shape(&mut self, coords: Vec<(f64, f64)>, item_id: u32) {
+        if coords.len() < 2 {
+            return
         }
+        for line in coords.windows(2) {
+            self.shape_tree.insert(GeomWithData::new(Line::new(line[0], line[1]), item_id))
+        }
+    }
+
+    pub fn nearest_shape(&self, (lat, lon): (f64, f64)) -> Option<u32> {
+        self.shape_tree.nearest_neighbor(&(lat, lon)).map(|line| line.data)
+    }
+
+    pub fn shapes_within_radius(&self, (lat, lon): (f64, f64), radius: f64) -> Vec<u32> {
+        self.shape_tree.locate_within_distance((lat, lon), radius*radius).map(|line| line.data).collect::<Vec<_>>()
     }
     ///calculate the squared euclidean distance between two points
     #[inline(always)]
